@@ -330,3 +330,5 @@
   config_file: ":/yolox_l_dwpose_ucoco.yaml"
 - model_name: "yolox_s-r20230520"
   config_file: ":/yolox_s.yaml"
+- model_name: "witty_egg_carton_top"
+  config_file: ":/witty_egg_carton_top.yaml"

@@ -172,6 +172,7 @@ _AUTO_LABELING_CONF_MODELS = [
     "yolo12",
     "u_rtdetr",
     "yoloe",
+    "witty_product_segmentation",
 ]
 
 
