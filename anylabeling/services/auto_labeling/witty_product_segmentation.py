@@ -65,7 +65,7 @@ class WittyProductSegmentation(Model):
         self.classes = self.config["classes"]
         self.confidence_threshold = self.config.get("conf_threshold", 0.5)
 
-    def predict_shapes(self, image: QImage, image_path=None):
+    def predict_shapes(self, image: QImage, image_path: str=None) -> AutoLabelingResult | list:
         """
         Predict shapes from image
         """
@@ -123,7 +123,7 @@ class WittyProductSegmentation(Model):
         inference_frame = cv2.resize(bgr_frame, dsize=(width, height))
         return inference_frame, 1.0 / scale
 
-    def postprocess(self, result, scale: float) -> dict[str, list[list[float]]]:
+    def postprocess(self, result: dict, scale: float) -> dict[str, list[list[float]]]:
         """
         Postprocess the model output to extract masks and bounding boxes.
         The model outputs masks and bounding boxes, which we need to normalize
@@ -176,7 +176,7 @@ class WittyProductSegmentation(Model):
             "rectangle": bboxes_list,
         }
 
-    def set_auto_labeling_conf(self, value):
+    def set_auto_labeling_conf(self, value: float) -> None:
         """set auto labeling confidence threshold"""
         if 0 < value < 1:
             self.confidence_threshold = value
