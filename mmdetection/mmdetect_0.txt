@@ -1,0 +1,7 @@
+numpy<1.28
+opencv-python-headless
+tensorboard==2.19.0
+setuptools==78.1.0
+scikit-image
+pyinstrument
+numba

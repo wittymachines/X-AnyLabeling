@@ -1,0 +1,8 @@
+type: witty_product_segmentation
+name: witty_egg_carton_top
+display_name: Witty Egg Carton Top
+model_path: /home/vincent/dev/wittymachines/src/object_detection/weights/rtmdet_egg_cartons_top
+classes:
+  - egg_carton_top
+task: egg
+conf_threshold: 0.6

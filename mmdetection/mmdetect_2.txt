@@ -1,0 +1,2 @@
+--find-links https://download.openmmlab.com/mmcv/dist/cu121/torch2.4/index.html
+mmcv==2.2.0
