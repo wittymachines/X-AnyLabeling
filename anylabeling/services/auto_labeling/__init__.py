@@ -173,6 +173,7 @@ _AUTO_LABELING_CONF_MODELS = [
     "u_rtdetr",
     "yoloe",
     "witty_product_segmentation",
+    "witty_open_egg_carton",
 ]
 
 

@@ -332,3 +332,5 @@
   config_file: ":/yolox_s.yaml"
 - model_name: "witty_egg_carton_top"
   config_file: ":/witty_egg_carton_top.yaml"
+- model_name: "witty_open_egg_carton"
+  config_file: ":/witty_open_egg_carton.yaml"

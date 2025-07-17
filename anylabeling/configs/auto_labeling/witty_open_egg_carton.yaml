@@ -1,0 +1,9 @@
+type: witty_open_egg_carton
+name: witty_open_egg_carton
+display_name: Witty Open Egg Carton
+model_path: /home/vincent/dev/wittymachines/src/object_detection/weights/open_egg_carton_detection
+classes:
+  - open
+  - egg
+  - flipped
+conf_threshold: 0.6
