@@ -1840,11 +1840,11 @@ class ModelManager(QObject):
                     f"❌ Error in loading model: {model_config['type']} with error: {str(e)}"
                 )
                 return
-        elif model_config["type"] == "witty_product_segmentation":
-            from .witty_product_segmentation import WittyProductSegmentation
+        elif model_config["type"] == "witty_object_segmentation":
+            from .witty_object_segmentation import WittyObjectSegmentation
 
             try:
-                model_config["model"] = WittyProductSegmentation(
+                model_config["model"] = WittyObjectSegmentation(
                     model_config, on_message=self.new_model_status.emit
                 )
                 self.auto_segmentation_model_unselected.emit()
@@ -1860,11 +1860,11 @@ class ModelManager(QObject):
                     f"❌ Error in loading model: {model_config['type']} with error: {str(e)}"
                 )
                 return
-        elif model_config["type"] == "witty_open_egg_carton":
-            from .witty_open_egg_carton import WittyOpenEggCarton
+        elif model_config["type"] == "witty_object_detection":
+            from .witty_object_detection import WittyObjectDetection
 
             try:
-                model_config["model"] = WittyOpenEggCarton(
+                model_config["model"] = WittyObjectDetection(
                     model_config, on_message=self.new_model_status.emit
                 )
                 self.auto_segmentation_model_unselected.emit()

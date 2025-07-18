@@ -18,8 +18,8 @@ from .model import Model
 from .types import AutoLabelingResult
 from PyQt5.QtGui import QImage
 
-class WittyProductSegmentation(Model):
-    """Model for Witty Product Segmentation using RTMDet."""
+class WittyObjectSegmentation(Model):
+    """Model for Witty Object Segmentation using RTMDet."""
     class Meta:
         required_config_names = [
             "type",
@@ -64,6 +64,22 @@ class WittyProductSegmentation(Model):
         )
         self.classes = self.config["classes"]
         self.confidence_threshold = self.config.get("conf_threshold", 0.5)
+        self.task = self.config["task"]
+
+        self.available_tasks = ("egg_carton_top",)
+        self.preprocess_functions = {"egg_carton_top": self.preprocess_egg_carton_top}
+        self.postprocess_functions = {
+            "egg_carton_top": self.postprocess_egg_carton_top,
+        }
+        
+        if self.task not in self.available_tasks:
+            raise ValueError(
+                QCoreApplication.translate(
+                    "Model",
+                    f"Task {self.task} is not supported by {model_name} model.",
+                )
+            )
+
 
     def predict_shapes(self, image: QImage, image_path: str=None) -> AutoLabelingResult | list:
         """
@@ -78,28 +94,27 @@ class WittyProductSegmentation(Model):
             logging.warning(e)
             return []
 
-        inference_frame, scale = self.preprocess(image)
+        inference_frame, scale = self.preprocess_functions[self.task](image)
         model_inputs, _ = self.task_processor.create_input(
             inference_frame, self.input_shape
         )
         outputs = self.model.test_step(model_inputs)[0]
-        results = self.postprocess(outputs, scale)
+        results = self.postprocess_functions[self.task](outputs, scale)
         shapes = []
-        for type, contours in results.items():
-            if self.output_mode == type:
-                for points in contours:
-                    # Make sure to close
-                    points.append(points[0])
-                    shape = Shape(flags={}, shape_type=type)
-                    for point in points:
-                        shape.add_point(QtCore.QPointF(point[0], point[1]))
-                    shape.closed = True
-                    shape.fill_color = "#000000"
-                    shape.line_color = "#000000"
-                    shape.line_width = 1
-                    shape.label = self.classes[0]  # Assuming single class for Witty Product Segmentation
-                    shape.selected = False
-                    shapes.append(shape)
+        for contour, score, class_id in results:
+            # Make sure to close
+            contour.append(contour[0])
+            shape = Shape(flags={}, shape_type=type)
+            for point in contour:
+                shape.add_point(QtCore.QPointF(point[0], point[1]))
+            shape.closed = True
+            shape.fill_color = "#000000"
+            shape.line_color = "#000000"
+            shape.line_width = 1
+            shape.label = self.classes[class_id]
+            shape.score = score
+            shape.selected = False
+            shapes.append(shape)
 
         result = AutoLabelingResult(shapes, replace=True)
         return result
@@ -107,7 +122,7 @@ class WittyProductSegmentation(Model):
     def unload(self):
         del self.model
 
-    def preprocess(self, bgr_frame: np.ndarray) -> tuple[np.ndarray, float]:
+    def preprocess_egg_carton_top(self, bgr_frame: np.ndarray) -> tuple[np.ndarray, float]:
         """
         Preprocess the input frame for the model.
         The model expects a 640x640 input size, so we resize the frame accordingly.
@@ -123,7 +138,7 @@ class WittyProductSegmentation(Model):
         inference_frame = cv2.resize(bgr_frame, dsize=(width, height))
         return inference_frame, 1.0 / scale
 
-    def postprocess(self, result: dict, scale: float) -> dict[str, list[list[float]]]:
+    def postprocess_egg_carton_top(self, result: dict, scale: float) -> list[float, list[float]]:
         """
         Postprocess the model output to extract masks and bounding boxes.
         The model outputs masks and bounding boxes, which we need to normalize
@@ -132,49 +147,47 @@ class WittyProductSegmentation(Model):
         scores = result.pred_instances.scores
         selected_indices = scores > self.confidence_threshold
 
+        scores = result.pred_instances.scores[selected_indices].numpy().tolist()
+        classes = result.pred_instances.labels[selected_indices].numpy().tolist()
         masks = result.pred_instances.masks[selected_indices]
         bboxes = result.pred_instances.bboxes[selected_indices].numpy()
 
-        contours_list = []
-        for mask in masks:
-            # Convert to NumPy and then to uint8 (0 or 255)
-            mask_np = mask.numpy().astype(np.uint8) * 255
-            # Resize mask to original size
-            mask_np = cv2.resize(mask_np, None, fx=scale, fy=scale)
+        if self.output_mode in ["polygon", "rotation"]:
+            contours_list = []
+            for i, mask in enumerate(masks):
+                # Convert to NumPy and then to uint8 (0 or 255)
+                mask_np = mask.numpy().astype(np.uint8) * 255
+                # Resize mask to original size
+                mask_np = cv2.resize(mask_np, None, fx=scale, fy=scale)
 
-            # Find contours. cv2.findContours may return different values based on your OpenCV version.
-            contours, _ = cv2.findContours(
-                mask_np, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-            )
+                # Find contours. cv2.findContours may return different values based on your OpenCV version.
+                contours, _ = cv2.findContours(
+                    mask_np, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+                )
 
-            if len(contours) > 0:
-                # take the contour with the largest area
-                contours = sorted(contours, key=cv2.contourArea, reverse=True)
-                chosen_contour = contours[0][:, 0, :]
-                contours_list.append(chosen_contour.tolist())
-        
-        # Get oriented bounding boxes from contours
-        oriented_bboxes = []
-        for contour in contours_list:
-            # Convert contour to bounding box
-            rect = cv2.minAreaRect(np.array(contour))
-            box = cv2.boxPoints(rect).astype(np.int32)
-            oriented_bboxes.append(box.tolist())
+                if len(contours) > 0:
+                    # take the contour with the largest area
+                    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+                    chosen_contour = contours[0][:, 0, :]
+                    contours_list.append((chosen_contour.tolist(), scores[i], classes[i]))
 
-        bboxes_list = []
-        for bbox in bboxes:
-            x1, y1, x2, y2 = (bbox.astype(np.float32)*scale + 0.5).astype(np.int32)
-            bboxes_list.append([[x1, y1], [x1, y2], [x2, y2], [x2, y1],])
-
-        assert len(contours_list) == len(bboxes_list), (
-            f"We must have the same number of masks ({len(contours_list)}) as bounding boxes {len(bboxes_list)}."
-        )
-
-        return {
-            "polygon": contours_list,
-            "rotation": oriented_bboxes,
-            "rectangle": bboxes_list,
-        }
+        if self.output_mode == "rotation":
+            # Get oriented bounding boxes from contours
+            oriented_bboxes = []
+            for contour, score, class_id in contours_list:
+                # Convert contour to bounding box
+                rect = cv2.minAreaRect(np.array(contour))
+                box = cv2.boxPoints(rect).astype(np.int32)
+                oriented_bboxes.append((box.tolist(), score, class_id))
+            return oriented_bboxes
+        elif self.output_mode == "rectangle":
+            bboxes_list = []
+            for bbox, score, class_id in zip(bboxes, scores, classes):
+                x1, y1, x2, y2 = (bbox.astype(np.float32)*scale + 0.5).astype(np.int32)
+                bboxes_list.append(([[x1, y1], [x1, y2], [x2, y2], [x2, y1],]), score, class_id)
+            return bboxes_list
+        else:
+            return contours_list  # Return contours for polygon output mode
 
     def set_auto_labeling_conf(self, value: float) -> None:
         """set auto labeling confidence threshold"""

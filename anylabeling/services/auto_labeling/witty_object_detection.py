@@ -18,8 +18,8 @@ from .model import Model
 from .types import AutoLabelingResult
 from PyQt5.QtGui import QImage
 
-class WittyOpenEggCarton(Model):
-    """Model for Witty Open Egg Carton using RTMDet."""
+class WittyObjectDetection(Model):
+    """Model for Witty Object Detection using RTMDet."""
     class Meta:
         required_config_names = [
             "type",
@@ -27,6 +27,7 @@ class WittyOpenEggCarton(Model):
             "display_name",
             "model_path",
             "classes",
+            "task"
         ]
         widgets = ["button_run", "output_select_combobox", "edit_conf"]
         output_modes = {
@@ -61,6 +62,18 @@ class WittyOpenEggCarton(Model):
         )
         self.classes = self.config["classes"]
         self.confidence_threshold = self.config.get("conf_threshold", 0.5)
+        self.task = self.config["task"]
+
+        self.available_tasks = ("open_egg_carton", "egg_carton_date")
+        self.preprocess_functions = {"open_egg_carton": self.preprocess_default, "egg_carton_date": self.preprocess_default}
+        self.postprocess_functions = {
+            "open_egg_carton": self.postprocess_default,
+            "egg_carton_date": self.postprocess_default,
+        }
+        
+        if self.task not in self.available_tasks:
+            logging.warning(f"Task not available. Available tasks are: {self.available_tasks}")
+
 
     def predict_shapes(self, image: QImage, image_path: str=None) -> AutoLabelingResult | list:
         """
@@ -75,12 +88,12 @@ class WittyOpenEggCarton(Model):
             logging.warning(e)
             return []
 
-        inference_frame, scale = self.preprocess(image)
+        inference_frame, scale = self.preprocess_functions[self.task](image)
         model_inputs, _ = self.task_processor.create_input(
             inference_frame, self.input_shape
         )
         outputs = self.model.test_step(model_inputs)[0]
-        results = self.postprocess(outputs, scale)
+        results = self.postprocess_functions[self.task](outputs, scale)
         shapes = []
         for bbox, score, cls in results:
             # Make sure to close
@@ -91,7 +104,7 @@ class WittyOpenEggCarton(Model):
             shape.line_color = "#000000"
             shape.line_width = 1
             shape.selected = True
-            shape.label = self.classes[cls]  # Assuming single class for Witty Product Segmentation
+            shape.label = self.classes[cls] 
             shape.score = score
             shapes.append(shape)
 
@@ -101,13 +114,13 @@ class WittyOpenEggCarton(Model):
     def unload(self):
         del self.model
 
-    def preprocess(self, bgr_frame: np.ndarray) -> tuple[np.ndarray, float]:
+    def preprocess_default(self, bgr_frame: np.ndarray) -> tuple[np.ndarray, float]:
         """
         Preprocess the input frame for the model.
         """
         return bgr_frame, 1.0
 
-    def postprocess(self, result: dict, scale: float) -> list[tuple[list[float], float, int]]:
+    def postprocess_default(self, result: dict, scale: float) -> list[tuple[list[float], float, int]]:
         """
         Postprocess the model output to extract masks and bounding boxes.
         The model outputs masks and bounding boxes, which we need to normalize
@@ -119,7 +132,6 @@ class WittyOpenEggCarton(Model):
         bboxes = result.pred_instances.bboxes[selected_indices].numpy()
         scores = result.pred_instances.scores[selected_indices].numpy().tolist()
         classes = result.pred_instances.labels[selected_indices].numpy().tolist()
-        # labels = [LABEL_FROM_CLASS_ID[c] for c in classes]
 
         bboxes_list = []
         for bbox in bboxes:
@@ -139,3 +151,5 @@ class WittyOpenEggCarton(Model):
         """set auto labeling confidence threshold"""
         if 0 < value < 1:
             self.confidence_threshold = value
+        else:
+            logging.warning("Confidence threshold must be between 0 and 1.")

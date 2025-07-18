@@ -174,6 +174,7 @@ _AUTO_LABELING_CONF_MODELS = [
     "yoloe",
     "witty_product_segmentation",
     "witty_open_egg_carton",
+    "witty_egg_carton_top",
 ]
 
 

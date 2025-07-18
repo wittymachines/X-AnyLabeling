@@ -1,0 +1,8 @@
+type: witty_object_detection
+name: witty_egg_carton_date
+display_name: Witty Egg Carton Date
+model_path: /home/vincent/dev/wittymachines/src/object_detection/weights/rtmdet_labels
+classes:
+  - date_label
+conf_threshold: 0.1
+task: egg_carton_date
